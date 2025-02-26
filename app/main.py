@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import os
 
-BUILTIN_CMD = {"exit", "echo", "type","pwd"}
+BUILTIN_CMD = {"exit", "echo", "type","pwd","cd"}
 
 def type_cmd(command):
     if command in BUILTIN_CMD:
@@ -42,6 +42,14 @@ def main():
             type_cmd(args[0])
         elif command == "pwd":
             print(os.getcwd())
+        elif command == "cd" and len(args) == 1:
+            if os.path.isabs(args[0]): 
+                try:
+                    os.chdir(args[0]) 
+                except FileNotFoundError:
+                    print(f"cd: no such file or directory: {args[0]}")
+                except PermissionError:
+                    print(f"cd: permission denied: {args[0]}")
         elif shutil.which(command):
             run_external_command(command_parts)
         else:
