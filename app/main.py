@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import os
 
-BUILTIN_CMD = {"exit", "echo", "type"}
+BUILTIN_CMD = {"exit", "echo", "type","pwd"}
 
 def type_cmd(command):
     if command in BUILTIN_CMD:
