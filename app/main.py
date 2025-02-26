@@ -21,7 +21,17 @@ def run_external_command(command_parts):
         print(f"{command_parts[0]}: command not found")
     except PermissionError:
         print(f"{command_parts[0]}: permission denied")
-
+def change_directory(path):
+    """Handles changing the directory, supporting absolute and relative paths."""
+    try:
+        # Resolve absolute or relative path
+        target_path = os.path.abspath(path) if not os.path.isabs(path) else path
+        os.chdir(target_path)  # Change directory
+    except FileNotFoundError:
+        print(f"cd: no such file or directory: {path}")
+    except PermissionError:
+        print(f"cd: permission denied: {path}")
+        
 def main():
     while True:
         sys.stdout.write("$ ")
@@ -43,13 +53,7 @@ def main():
         elif command == "pwd":
             print(os.getcwd())
         elif command == "cd" and len(args) == 1:
-            if os.path.isabs(args[0]): 
-                try:
-                    os.chdir(args[0]) 
-                except FileNotFoundError:
-                    print(f"cd: no such file or directory: {args[0]}")
-                except PermissionError:
-                    print(f"cd: permission denied: {args[0]}")
+            change_directory(args[0])
         elif shutil.which(command):
             run_external_command(command_parts)
         else:
