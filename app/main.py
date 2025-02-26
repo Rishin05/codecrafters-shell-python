@@ -1,6 +1,7 @@
 import sys
 import shutil
 import subprocess
+import os
 
 BUILTIN_CMD = {"exit", "echo", "type"}
 
@@ -39,6 +40,8 @@ def main():
             print(" ".join(args))
         elif command == "type" and len(args) == 1:
             type_cmd(args[0])
+        elif command == "pwd":
+            print(os.getcwd())
         elif shutil.which(command):
             run_external_command(command_parts)
         else:
