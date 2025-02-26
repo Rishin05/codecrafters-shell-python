@@ -21,9 +21,15 @@ def run_external_command(command_parts):
         print(f"{command_parts[0]}: command not found")
     except PermissionError:
         print(f"{command_parts[0]}: permission denied")
+
+
 def change_directory(path):
-    """Handles changing the directory, supporting absolute and relative paths."""
+    """Handles changing the directory, supporting absolute, relative, and ~ paths."""
     try:
+        # Handle '~' and '~/something'
+        if path == "~" or path.startswith("~/"):
+            path = os.path.expanduser(path)  # Expands to the home directory
+
         # Resolve absolute or relative path
         target_path = os.path.abspath(path) if not os.path.isabs(path) else path
         os.chdir(target_path)  # Change directory
@@ -31,7 +37,7 @@ def change_directory(path):
         print(f"cd: no such file or directory: {path}")
     except PermissionError:
         print(f"cd: permission denied: {path}")
-        
+
 def main():
     while True:
         sys.stdout.write("$ ")
