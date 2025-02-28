@@ -1,109 +1,140 @@
-import sys
 import os
 import subprocess
-
-def split_input(inp):
+import sys
+from typing import Optional
+BUILTINS = ["echo", "exit", "type", "pwd", "cd"]
+def present_on_path(command) -> Optional[str]:
+    path = os.environ.get("PATH")
+    if path:
+        dirs = path.split(":")
+        for dir in dirs:
+            full_path = os.path.join(dir, command)
+            if os.path.isfile(full_path):
+                return full_path
+    return None
+def handle_type(args) -> tuple[str, str]:
+    if args[0] in BUILTINS:
+        return (f"{args[0]} is a shell builtin", "")
+    else:
+        full_path = present_on_path(args[0])
+        if full_path:
+            return (f"{args[0]} is {full_path}", "")
+    return ("", f"{args[0]}: not found")
+def normalise_args(user_input) -> list[str]:
+    res = []
+    arg = ""
     i = 0
-    inpList = []
-    toFile = ""
-    curWord = ""
-    while i < len(inp):
-        if inp[i] == "\\":
-            curWord += inp[i + 1]
+    while i < len(user_input):
+        if user_input[i] == "'":
             i += 1
-        elif inp[i] == " ":
-            if ">" in curWord:
-                toFile = inp[i + 1 :]
-                return inpList, toFile
-            if curWord:
-                inpList.append(curWord)
-            curWord = ""
-        elif inp[i] == "'":
-            i += 1
-            while inp[i] != "'":
-                curWord += inp[i]
+            start = i
+            while i < len(user_input) and user_input[i] != "'":
                 i += 1
-        elif inp[i] == '"':
+            arg += user_input[start:i]
             i += 1
-            while inp[i] != '"':
-                if inp[i] == "\\" and inp[i + 1] in ["\\", "$", '"']:
-                    curWord += inp[i + 1]
+        elif user_input[i] == '"':
+            i += 1
+            while i < len(user_input):
+                if user_input[i] == "\\":
+                    if user_input[i + 1] in ["\\", "$", '"', "\n"]:
+                        arg += user_input[i + 1]
+                        i += 2
+                    else:
+                        arg += user_input[i]
+                        i += 1
+                elif user_input[i] == '"':
+                    break
+                else:
+                    arg += user_input[i]
+                    i += 1
+            i += 1
+        elif user_input[i] == " ":
+            if arg:
+                res.append(arg)
+            arg = ""
+            i += 1
+        elif user_input[i] == "\\":
+            i += 1
+        else:
+            while i < len(user_input) and user_input[i] != " ":
+                if user_input[i] == "\\":
+                    arg += user_input[i + 1]
                     i += 2
                 else:
-                    curWord += inp[i]
+                    arg += user_input[i]
                     i += 1
-        else:
-            curWord += inp[i]
-        i += 1
-    inpList.append(curWord)
-    return inpList, toFile
-
+    if arg:
+        res.append(arg)
+    return res
+def cd_cmd(args, cur_dir) -> tuple[str, str]:
+    path = args[0]
+    new_dir = cur_dir
+    if path.startswith("/"):
+        new_dir = path
+    else:
+        for p in filter(None, path.split("/")):
+            if p == "..":
+                new_dir = new_dir.rsplit("/", 1)[0]
+            elif p == "~":
+                new_dir = os.environ["HOME"]
+            elif p != ".":
+                new_dir += f"/{p}"
+    if not os.path.exists(new_dir):
+        return (cur_dir, f"cd: {path}: No such file or directory")
+    else:
+        return (new_dir, "")
 def main():
-    exited = False
-    path_list = os.environ["PATH"].split(":")
-    builtin_list = ["exit", "echo", "type", "pwd", "cd"]
-    while not exited:
-        # Uncomment this block to pass the first stage
+    cur_dir = os.getcwd()
+    while True:
         sys.stdout.write("$ ")
-        # Wait for user input
-        userinp = input()
-        inpList, toFile = split_input(userinp)
-        output = ""
-        match inpList[0]:
-            case "cd":
-                path = inpList[1]
-                if path == "~":
-                    os.chdir(os.environ["HOME"])
-                elif os.path.isdir(path):
-                    os.chdir(path)
-                else:
-                    output = path + ": No such file or directory"
-            case "pwd":
-                output = os.getcwd()
-            case "type":
-                for path in path_list:
-                    if os.path.isfile(f"{path}/{inpList[1]}"):
-                        output = inpList[1] + " is " + f"{path}/{inpList[1]}"
-                        break
-                if inpList[1] in builtin_list:
-                    output = inpList[1] + " is a shell builtin"
-                if not output:
-                    output = inpList[1] + ": not found"
-            case "echo":
-                output = " ".join(inpList[1:])
-            case "exit":
-                exited = True
-            case _:
-                isCmd = False
-                for path in path_list:
-                    p = f"{path}/{inpList[0]}"
-                    if os.path.isfile(p):
-                        # Use the original command name in the environment variables
-                        env = os.environ.copy()
-                        
-                        # Run the command with its full path but preserve the original command name
-                        result = subprocess.run(
-                            [p] + inpList[1:], 
-                            stdout=subprocess.PIPE, 
-                            stderr=subprocess.PIPE,
-                            text=True,
-                            env=env
-                        )
-                        
-                        output = result.stdout.rstrip()
-                        if result.stderr:
-                            print(result.stderr.rstrip(), file=sys.stderr)
-                        
-                        isCmd = True
-                        break
-                if not isCmd:
-                    output = userinp + ": command not found"
-        if not toFile:
-            if output:
-                print(output, file=sys.stdout)
+        sys.stdout.flush()
+        user_input = input()
+        args = normalise_args(user_input)
+        cmd, args = args[0], args[1:]
+        # Handle redirections
+        redir = None
+        redir_file = None
+        if len(args) >= 3 and args[-2] in ["1>", ">", "2>"]:
+            redir = args[-2]
+            redir_file = args[-1]
+            args = args[:-2]
+        out, err = "", ""
+        if cmd == "exit":
+            if args[0] == "0":
+                break
+        elif cmd == "echo":
+            out = " ".join(args)
+        elif cmd == "type":
+            out, err = handle_type(args)
+        elif cmd == "pwd":
+            out = cur_dir
+        elif cmd == "cd":
+            cur_dir, err = cd_cmd(args, cur_dir)
         else:
-            with open(toFile, "w") as f:  # Changed from "a" to "w" to create or overwrite the file
-                print(output, end="", file=f)
-                
+            if present_on_path(cmd):
+                res = subprocess.run(
+                    args=([cmd] + args),
+                    capture_output=True,
+                    text=True,
+                )
+                out = res.stdout.rstrip()
+                err = res.stderr.rstrip()
+            else:
+                err = f"{user_input}: command not found"
+        # Write output and errors
+        if redir:
+            assert redir_file
+            if redir == "2>":
+                with open(redir_file, "w") as f:
+                    f.write(err)
+                err = ""
+            elif redir in ["1>", ">"]:
+                with open(redir_file, "w") as f:
+                    f.write(out)
+                out = ""
+        if err:
+            print(err, file=sys.stderr)
+        if out:
+            print(out, file=sys.stdout)
 if __name__ == "__main__":
     main()
