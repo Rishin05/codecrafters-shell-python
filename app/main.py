@@ -30,7 +30,7 @@ def autoc(text, state):
     if len(words) == 0:  # No input yet
         options = sorted(bic + list(gex()))
     elif len(words) == 1:  # Completing a command
-        options = sorted(cmd for cmd in bic + list(gex()) if cmd.startswith(text))
+        options = sorted(cmd + " " for cmd in bic + list(gex()) if cmd.startswith(text))
     else:  # Completing arguments
         cmd = words[0]
         if cmd == "cd":  # Suggest directories for 'cd'
