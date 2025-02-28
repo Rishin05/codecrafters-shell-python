@@ -78,9 +78,22 @@ def main():
                 for path in path_list:
                     p = f"{path}/{inpList[0]}"
                     if os.path.isfile(p):
-                        output = subprocess.run(
-                            [p] + inpList[1:], stdout=subprocess.PIPE, text=True
-                        ).stdout.rstrip()
+                        # Use the original command name in the environment variables
+                        env = os.environ.copy()
+                        
+                        # Run the command with its full path but preserve the original command name
+                        result = subprocess.run(
+                            [p] + inpList[1:], 
+                            stdout=subprocess.PIPE, 
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            env=env
+                        )
+                        
+                        output = result.stdout.rstrip()
+                        if result.stderr:
+                            print(result.stderr.rstrip(), file=sys.stderr)
+                        
                         isCmd = True
                         break
                 if not isCmd:
@@ -89,7 +102,7 @@ def main():
             if output:
                 print(output, file=sys.stdout)
         else:
-            with open(toFile, "a") as f:
+            with open(toFile, "w") as f:  # Changed from "a" to "w" to create or overwrite the file
                 print(output, end="", file=f)
                 
 if __name__ == "__main__":
