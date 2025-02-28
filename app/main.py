@@ -2,7 +2,7 @@ import sys
 import shutil
 import subprocess
 import os
-import shlex
+import shlex #for splitting the command line into tokens (the best)
 import readline
 
 bic = ['echo ', 'exit ', 'cd ', 'pwd ', 'type ']
