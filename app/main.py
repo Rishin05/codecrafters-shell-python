@@ -78,30 +78,11 @@ def main():
                 for path in path_list:
                     p = f"{path}/{inpList[0]}"
                     if os.path.isfile(p):
-                        # The key fix: Use the command name as argv[0], not the full path
-                        # We need to use os.execv to replace the current process
-                        try:
-                            # Create a new process for the command
-                            process = subprocess.Popen(
-                                [p] + inpList[1:],
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                text=True,
-                                env=dict(os.environ, **{"_": inpList[0]})  # Set _ environment variable
-                            )
-                            
-                            # Get the output
-                            stdout, stderr = process.communicate()
-                            output = stdout.rstrip()
-                            if stderr:
-                                output += stderr
-                                
-                            isCmd = True
-                            break
-                        except Exception as e:
-                            output = str(e)
-                            isCmd = True
-                            break
+                        output = subprocess.run(
+                            [p] + inpList[1:], stdout=subprocess.PIPE, text=True
+                        ).stdout.rstrip()
+                        isCmd = True
+                        break
                 if not isCmd:
                     output = userinp + ": command not found"
         if not toFile:
@@ -110,6 +91,6 @@ def main():
         else:
             with open(toFile, "a") as f:
                 print(output, end="", file=f)
-
+                
 if __name__ == "__main__":
     main()
