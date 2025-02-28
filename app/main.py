@@ -8,7 +8,7 @@ import glob
 
 bic = ['echo', 'exit', 'cd', 'pwd', 'type']
 cn = 0  # Tracks if the user pressed TAB once or twice
-history = []  # Store previous words for `echo`
+last_matches = []  # Stores the last matches for the second <TAB>
 
 def gex():
     """Retrieve all executables in PATH."""
@@ -24,7 +24,7 @@ def gex():
 
 def autoc(text, state):
     """Tab completion logic."""
-    global cn
+    global cn, last_matches
 
     buffer = readline.get_line_buffer()
     words = buffer.split()
@@ -32,7 +32,7 @@ def autoc(text, state):
     if len(words) == 0:  # No input yet
         options = sorted(bic + list(gex()))
     elif len(words) == 1:  # Completing a command
-        options = sorted(cmd + " " for cmd in bic + list(gex()) if cmd.startswith(text))
+        options = sorted(cmd for cmd in bic + list(gex()) if cmd.startswith(text))
     else:  # Completing arguments
         cmd = words[0]
         if cmd == "cd":  # Suggest directories for 'cd'
@@ -50,25 +50,24 @@ def autoc(text, state):
 
     if not matches:
         return None
-    
+
     if state == 0:
-        if len(matches) > 1:
+        if len(matches) > 1 and cn == 0:
             sys.stdout.write("\a")  # Ring the bell
             sys.stdout.flush()
             cn = 1  # Indicate first TAB press
-        return matches[0] if len(matches) == 1 else None
-
-    if cn == 1:
-        if len(matches) > 1:
-            print("\n" + "  ".join(matches))  # Print matches separated by two spaces
-            sys.stdout.write("$ ")  # Display prompt on a new line
+            last_matches = matches  # Store matches for the second TAB
+            return None
+        elif cn == 1:
+            print("\n" + "  ".join(last_matches))  # Print matches separated by two spaces
+            sys.stdout.write("\n$ ")  # Display prompt on a new line
             sys.stdout.flush()
             cn = 0  # Reset counter
-        return None
+            return None
 
     if state < len(matches):
         return matches[state]
-    
+
     return None
 
 readline.parse_and_bind("tab: complete")
