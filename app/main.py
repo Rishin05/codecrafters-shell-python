@@ -39,11 +39,35 @@ def change_directory(path):
     except PermissionError:
         print(f"cd: permission denied: {path}")
 
+def parse_command(command_input):
+    """Parses command input and handles redirection"""
+    try:
+        parts =shlex.split(command_input)
+    except ValueError as e:
+        print(f"error parsing command: {e}")
+        return [], None
+    
+    if ">" in parts:
+        index = parts.index(">") if ">" in parts else parts.index("1>")
+        if index + 1 < len(parts):
+            return parts[:index], parts[index + 1]
+        else:
+            print("syntax error: missing file for redirection")
+            return [], None
+    return parts, None
+            
+
 def main():
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
-        command_parts = shlex.split(input()) # Split the input into parts using shlex let that be single double backslash qouted executable
+        
+
+        command_input = input().strip()
+        if not command_input:
+            continue  # Skip empty input
+
+        command_parts, output_file = parse_command(command_input)
 
         if not command_parts:
             continue  # Skip empty input
@@ -54,15 +78,25 @@ def main():
         if command == "exit" and args == ["0"]:
             exit()
         elif command == "echo":
-            print(" ".join(args))
+            output = " ".join(args)
+            if output_file:
+                with open(output_file, "w") as f:
+                    f.write(output + "\n")
+            else:
+                print(output)
         elif command == "type" and len(args) == 1:
             type_cmd(args[0])
         elif command == "pwd":
-            print(os.getcwd())
+            output = os.getcwd()
+            if output_file:
+                with open(output_file, "w") as f:
+                    f.write(output + "\n")
+            else:
+                print(output)
         elif command == "cd" and len(args) == 1:
             change_directory(args[0])
         elif shutil.which(command):
-            run_external_command(command_parts)
+            run_external_command(command_parts, output_file)
         else:
             print(f"{command}: command not found")
 
