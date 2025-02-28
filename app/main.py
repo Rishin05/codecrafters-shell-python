@@ -71,22 +71,22 @@ def main():
                 output = " ".join(inpList[1:])
             case "exit":
                 exited = True
-           case _:
-    isCmd = False
-    for path in path_list:
-        p = f"{path}/{inpList[0]}"
-        if os.path.isfile(p):
-            # Execute with the full path, but don't pass it as the first argument
-            proc = subprocess.run(
-                [p] + inpList[1:], 
-                stdout=subprocess.PIPE, 
-                text=True
-            )
-            output = proc.stdout.rstrip()
-            isCmd = True
-            break
-    if not isCmd:
-        output = userinp + ": command not found"
+            case _:
+                isCmd = False
+                for path in path_list:
+                    p = f"{path}/{inpList[0]}"
+                    if os.path.isfile(p):
+                        # Execute with the full path, but don't pass it as the first argument
+                        proc = subprocess.run(
+                            [p] + inpList[1:], 
+                            stdout=subprocess.PIPE, 
+                            text=True
+                        )
+                        output = proc.stdout.rstrip()
+                        isCmd = True
+                        break
+                if not isCmd:
+                    output = userinp + ": command not found"
         if not toFile:
             if output:
                 print(output, file=sys.stdout)
