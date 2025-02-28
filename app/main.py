@@ -1,91 +1,93 @@
 import sys
-import shutil
-import subprocess
 import os
-
-BUILTIN_CMD = {"exit", "echo", "type", "pwd", "cd"}
-
-def type_cmd(command):
-    if command in BUILTIN_CMD:
-        print(f"{command} is a shell builtin")
-    elif (path := shutil.which(command)):
-        print(f"{command} is {path}")
-    else:
-        print(f"{command}: not found")
-
-def run_external_command(command_parts, output_file=None):
-    """Runs an external program, optionally redirecting output to a file."""
-    try:
-        with open(output_file, "w") if output_file else sys.stdout as f:
-            subprocess.run(command_parts, stdout=f, text=True, check=True)
-    except FileNotFoundError:
-        print(f"{command_parts[0]}: command not found")
-    except PermissionError:
-        print(f"{command_parts[0]}: permission denied")
-    except subprocess.CalledProcessError:
-        print(f"{command_parts[0]}: command failed")
-
-def change_directory(path):
-    """Handles changing the directory, supporting absolute, relative, and ~ paths."""
-    try:
-        if path == "~" or path.startswith("~/"):
-            path = os.path.expanduser(path)  # Expands to the home directory
-        os.chdir(path)
-    except FileNotFoundError:
-        print(f"cd: no such file or directory: {path}")
-    except PermissionError:
-        print(f"cd: permission denied: {path}")
-
-def parse_command(input_line):
-    """Parses the command line input and handles output redirection."""
-    parts = input_line.split()
-    if ">" in parts:
-        idx = parts.index(">")
-        command_parts = parts[:idx]
-        output_file = parts[idx + 1] if idx + 1 < len(parts) else None
-        return command_parts, output_file
-    return parts, None
-
-def main():
-    while True:
-        sys.stdout.write("$ ")
-        sys.stdout.flush()
-        input_line = input().strip()
-
-        if not input_line:
-            continue  # Skip empty input
-
-        command_parts, output_file = parse_command(input_line)
-        if not command_parts:
-            continue
-
-        command = command_parts[0]
-        args = command_parts[1:]
-
-        if command == "exit" and args == ["0"]:
-            exit()
-        elif command == "echo":
-            output = " ".join(args)
-            if output_file:
-                with open(output_file, "w") as f:
-                    f.write(output + "\n")
-            else:
-                print(output)
-        elif command == "type" and len(args) == 1:
-            type_cmd(args[0])
-        elif command == "pwd":
-            output = os.getcwd()
-            if output_file:
-                with open(output_file, "w") as f:
-                    f.write(output + "\n")
-            else:
-                print(output)
-        elif command == "cd" and len(args) == 1:
-            change_directory(args[0])
-        elif shutil.which(command):
-            run_external_command(command_parts, output_file)
+import subprocess
+def split_input(inp):
+    i = 0
+    inpList = []
+    toFile = ""
+    curWord = ""
+    while i < len(inp):
+        if inp[i] == "\\":
+            curWord += inp[i + 1]
+            i += 1
+        elif inp[i] == " ":
+            if ">" in curWord:
+                toFile = inp[i + 1 :]
+                return inpList, toFile
+            if curWord:
+                inpList.append(curWord)
+            curWord = ""
+        elif inp[i] == "'":
+            i += 1
+            while inp[i] != "'":
+                curWord += inp[i]
+                i += 1
+        elif inp[i] == '"':
+            i += 1
+            while inp[i] != '"':
+                if inp[i] == "\\" and inp[i + 1] in ["\\", "$", '"']:
+                    curWord += inp[i + 1]
+                    i += 2
+                else:
+                    curWord += inp[i]
+                    i += 1
         else:
-            print(f"{command}: command not found")
-
+            curWord += inp[i]
+        i += 1
+    inpList.append(curWord)
+    return inpList, toFile
+def main():
+    exited = False
+    path_list = os.environ["PATH"].split(":")
+    builtin_list = ["exit", "echo", "type", "pwd", "cd"]
+    while not exited:
+        # Uncomment this block to pass the first stage
+        sys.stdout.write("$ ")
+        # Wait for user input
+        userinp = input()
+        inpList, toFile = split_input(userinp)
+        output = ""
+        match inpList[0]:
+            case "cd":
+                path = inpList[1]
+                if path == "~":
+                    os.chdir(os.environ["HOME"])
+                elif os.path.isdir(path):
+                    os.chdir(path)
+                else:
+                    output = path + ": No such file or directory"
+            case "pwd":
+                output = os.getcwd()
+            case "type":
+                for path in path_list:
+                    if os.path.isfile(f"{path}/{inpList[1]}"):
+                        output = inpList[1] + " is " + f"{path}/{inpList[1]}"
+                        break
+                if inpList[1] in builtin_list:
+                    output = inpList[1] + " is a shell builtin"
+                if not output:
+                    output = inpList[1] + ": not found"
+            case "echo":
+                output = " ".join(inpList[1:])
+            case "exit":
+                exited = True
+            case _:
+                isCmd = False
+                for path in path_list:
+                    p = f"{path}/{inpList[0]}"
+                    if os.path.isfile(p):
+                        output = subprocess.run(
+                            [p] + inpList[1:], stdout=subprocess.PIPE, text=True
+                        ).stdout.rstrip()
+                        isCmd = True
+                        break
+                if not isCmd:
+                    output = userinp + ": command not found"
+        if not toFile:
+            if output:
+                print(output, file=sys.stdout)
+        else:
+            with open(toFile, "a") as f:
+                print(output, end="", file=f)
 if __name__ == "__main__":
     main()
