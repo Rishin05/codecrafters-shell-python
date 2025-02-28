@@ -2,6 +2,7 @@ import sys
 import shutil
 import subprocess
 import os
+import shlex
 
 BUILTIN_CMD = {"exit", "echo", "type","pwd","cd"}
 
@@ -42,7 +43,7 @@ def main():
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
-        command_parts = input().split()
+        command_parts = shlex.split(input())
 
         if not command_parts:
             continue  # Skip empty input
