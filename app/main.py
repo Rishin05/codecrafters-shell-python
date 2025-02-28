@@ -43,7 +43,7 @@ def main():
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
-        command_parts = shlex.split(input())
+        command_parts = shlex.split(input()) # Split the input into parts using shlex let that be single double backslash qouted executable
 
         if not command_parts:
             continue  # Skip empty input
