@@ -7,23 +7,25 @@ import readline
 import glob
 
 bic = ['echo', 'exit', 'cd', 'pwd', 'type']
-cn = 0
+cn = 0  # Tracks if the user pressed TAB once or twice
 history = []  # Store previous words for `echo`
 
 def gex():
+    """Retrieve all executables in PATH."""
     paths = os.environ.get("PATH", "").split(os.pathsep)
     execs = set()
     for p in paths:
         if os.path.isdir(p):
             for f in os.listdir(p):
                 fp = os.path.join(p, f)
-                if os.access(fp, os.X_OK):
+                if os.access(fp, os.X_OK) and not os.path.isdir(fp):
                     execs.add(f)
     return execs
 
 def autoc(text, state):
+    """Tab completion logic."""
     global cn
-    
+
     buffer = readline.get_line_buffer()
     words = buffer.split()
 
@@ -44,11 +46,28 @@ def autoc(text, state):
         else:
             options = []  # No specific completion
 
-    if not options:
+    matches = [cmd for cmd in options if cmd.startswith(text)]
+
+    if not matches:
         return None
     
-    if state < len(options):
-        return options[state]
+    if state == 0:
+        if len(matches) > 1:
+            sys.stdout.write("\a")  # Ring the bell
+            sys.stdout.flush()
+            cn = 1  # Indicate first TAB press
+        return matches[0] if len(matches) == 1 else None
+
+    if cn == 1:
+        if len(matches) > 1:
+            print("\n" + "  ".join(matches))  # Print matches separated by two spaces
+            sys.stdout.write("$ ")  # Display prompt on a new line
+            sys.stdout.flush()
+            cn = 0  # Reset counter
+        return None
+
+    if state < len(matches):
+        return matches[state]
     
     return None
 
