@@ -2,9 +2,8 @@ import sys
 import shutil
 import subprocess
 import os
-import shlex
 
-BUILTIN_CMD = {"exit", "echo", "type","pwd","cd"}
+BUILTIN_CMD = {"exit", "echo", "type", "pwd", "cd"}
 
 def type_cmd(command):
     if command in BUILTIN_CMD:
@@ -14,63 +13,51 @@ def type_cmd(command):
     else:
         print(f"{command}: not found")
 
-def run_external_command(command_parts):
-    """Runs an external program if found in PATH."""
+def run_external_command(command_parts, output_file=None):
+    """Runs an external program, optionally redirecting output to a file."""
     try:
-        subprocess.run(command_parts)
+        with open(output_file, "w") if output_file else sys.stdout as f:
+            subprocess.run(command_parts, stdout=f, text=True, check=True)
     except FileNotFoundError:
         print(f"{command_parts[0]}: command not found")
     except PermissionError:
         print(f"{command_parts[0]}: permission denied")
-
+    except subprocess.CalledProcessError:
+        print(f"{command_parts[0]}: command failed")
 
 def change_directory(path):
     """Handles changing the directory, supporting absolute, relative, and ~ paths."""
     try:
-        # Handle '~' and '~/something'
         if path == "~" or path.startswith("~/"):
             path = os.path.expanduser(path)  # Expands to the home directory
-
-        # Resolve absolute or relative path
-        target_path = os.path.abspath(path) if not os.path.isabs(path) else path
-        os.chdir(target_path)  # Change directory
+        os.chdir(path)
     except FileNotFoundError:
         print(f"cd: no such file or directory: {path}")
     except PermissionError:
         print(f"cd: permission denied: {path}")
 
-def parse_command(command_input):
-    """Parses command input and handles redirection"""
-    try:
-        parts =shlex.split(command_input)
-    except ValueError as e:
-        print(f"error parsing command: {e}")
-        return [], None
-    
+def parse_command(input_line):
+    """Parses the command line input and handles output redirection."""
+    parts = input_line.split()
     if ">" in parts:
-        index = parts.index(">") if ">" in parts else parts.index("1>")
-        if index + 1 < len(parts):
-            return parts[:index], parts[index + 1]
-        else:
-            print("syntax error: missing file for redirection")
-            return [], None
+        idx = parts.index(">")
+        command_parts = parts[:idx]
+        output_file = parts[idx + 1] if idx + 1 < len(parts) else None
+        return command_parts, output_file
     return parts, None
-            
 
 def main():
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
-        
+        input_line = input().strip()
 
-        command_input = input().strip()
-        if not command_input:
+        if not input_line:
             continue  # Skip empty input
 
-        command_parts, output_file = parse_command(command_input)
-
+        command_parts, output_file = parse_command(input_line)
         if not command_parts:
-            continue  # Skip empty input
+            continue
 
         command = command_parts[0]
         args = command_parts[1:]
