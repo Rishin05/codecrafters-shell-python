@@ -7,8 +7,8 @@ import readline
 import glob
 
 bic = ['echo', 'exit', 'cd', 'pwd', 'type']
-cn = 0  # Tracks if the user pressed TAB once or twice
-last_matches = []  # Stores the last matches for the second <TAB>
+tab_count = 0  # Track TAB presses
+last_matches = []  # Store the last matches
 
 def gex():
     """Retrieve all executables in PATH."""
@@ -22,9 +22,21 @@ def gex():
                     execs.add(f)
     return execs
 
+def find_common_prefix(strings):
+    """Find the longest common prefix among a list of strings."""
+    if not strings:
+        return ""
+    prefix = strings[0]
+    for s in strings[1:]:
+        while not s.startswith(prefix):
+            prefix = prefix[:-1]
+            if not prefix:
+                return ""
+    return prefix
+
 def autoc(text, state):
     """Tab completion logic."""
-    global cn, last_matches
+    global tab_count, last_matches
 
     buffer = readline.get_line_buffer()
     words = buffer.split()
@@ -52,17 +64,25 @@ def autoc(text, state):
         return None
 
     if state == 0:
-        if len(matches) > 1 and cn == 0:
-            sys.stdout.write("\a")  # Ring the bell
+        if len(matches) == 1:
+            return matches[0] + " "  # Auto-complete if one match
+
+        common_prefix = find_common_prefix(matches)
+        if common_prefix and common_prefix != text:
+            tab_count = 0  # Reset for next completion round
+            return common_prefix  # Expand prefix
+
+        if tab_count == 0:
+            sys.stdout.write("\a")  # First <TAB>: Bell sound
             sys.stdout.flush()
-            cn = 1  # Indicate first TAB press
-            last_matches = matches  # Store matches for the second TAB
+            tab_count += 1
+            last_matches = matches  # Store matches
             return None
-        elif cn == 1:
-            print("\n" + "  ".join(last_matches))  # Print matches separated by two spaces
-            sys.stdout.write("\n$ ")  # Display prompt on a new line
+        else:
+            print("\n" + "  ".join(last_matches))  # Second <TAB>: Show matches
+            sys.stdout.write("\n$ " + buffer)  # Keep current input
             sys.stdout.flush()
-            cn = 0  # Reset counter
+            tab_count = 0  # Reset
             return None
 
     if state < len(matches):
